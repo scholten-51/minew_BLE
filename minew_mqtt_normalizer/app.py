@@ -81,6 +81,10 @@ SENSOR_DEFS: dict[str, dict[str, Any]] = {
     "pressure_hpa": {"name": "Pressure", "unit": "hPa", "device_class": "atmospheric_pressure", "state_class": "measurement"},
     "tvoc_ppb": {"name": "TVOC", "unit": "ppb", "device_class": "volatile_organic_compounds_parts", "state_class": "measurement"},
     "photo_lumens": {"name": "Photoresistance Lumens", "unit": "lm", "state_class": "measurement", "icon": "mdi:white-balance-sunny"},
+    "phototransistor": {"name": "Phototransistor", "state_class": "measurement", "icon": "mdi:white-balance-sunny"},
+    "light_level": {"name": "Light Level", "state_class": "measurement", "icon": "mdi:brightness-6"},
+    "alert_time_seconds": {"name": "Alert Time", "unit": "s", "device_class": "duration", "state_class": "measurement"},
+    "monitoring_period": {"name": "Monitoring Period", "icon": "mdi:calendar-clock"},
     "vibration_timestamp": {"name": "Vibration Timestamp", "icon": "mdi:timer-outline"},
 
     # Axes / motion
@@ -111,12 +115,13 @@ SENSOR_DEFS: dict[str, dict[str, Any]] = {
 
 BINARY_SENSOR_DEFS: dict[str, dict[str, Any]] = {
     "occupancy": {"name": "Occupancy", "device_class": "occupancy"},
-    "pir": {"name": "PIR", "device_class": "motion"},
+    "pir": {"name": "PIR Motion", "device_class": "motion"},
     "tamper": {"name": "Tamper", "device_class": "tamper"},
     "low_battery": {"name": "Low Battery", "device_class": "battery"},
     "door_open": {"name": "Door", "device_class": "door"},
     "installed": {"name": "Installed", "icon": "mdi:check-circle-outline"},
     "triggered": {"name": "Triggered", "icon": "mdi:gesture-tap-button"},
+    "light_detected": {"name": "Light Detected", "device_class": "light"},
     "motion": {"name": "Motion", "device_class": "motion"},
     "vibration": {"name": "Vibration", "device_class": "vibration"},
 }
@@ -127,6 +132,8 @@ EVENT_FRAME_FIELDS = {
     "url": "last_url_seen",
     "uid": "last_uid_seen",
     "pir": "last_pir_seen",
+    "pir_sensor": "last_pir_seen",
+    "ps": "last_pir_seen",
     "vibration": "last_vibration_seen",
     "tamper": "last_tamper_seen",
     "tamper_proof": "last_tamper_seen",
@@ -400,6 +407,8 @@ def infer_model(state: dict[str, Any]) -> str | None:
     if name:
         return name
     frames = set(state.get("frames") or [])
+    if {"pir", "ps", "photo", "phototransistor", "ht", "acc"}.intersection(frames) and ("pir" in frames or "ps" in frames or "photo" in frames or "phototransistor" in frames):
+        return "MSP01 PIR sensor"
     if "ht" in frames:
         return "HT sensor"
     if "temp" in frames:
@@ -542,13 +551,23 @@ def update_from_adv(
         copy_number(state, adv, "tvoc_ppb", "tvoc_ppb")
         copy_number(state, adv, "battery", "battery_percent")
 
-    elif adv_type in {"pir", "infrared"}:
-        # BeaconPlus PIR Data: 0x0000 = no infrared, 0x0001 = infrared detected.
-        value = first_present(adv, ["pir", "pir_data", "infrared", "infrared_detected", "detected"])
+    elif adv_type in {"pir", "infrared", "pir_sensor", "pir_alarm"}:
+        # MSP01 / BeaconPlus PIR Data: 0x0000 = no infrared, 0x0001 = infrared detected.
+        value = first_present(adv, [
+            "pir", "pir_data", "infrared", "infrared_detected", "detected",
+            "triggered", "motion", "alarm", "pir_alarm", "human_detected", "status", "state", "value"
+        ])
         parsed = coerce_bool(value)
         if parsed is not None:
             state["pir"] = parsed
+            state["motion"] = parsed
+            state["triggered"] = parsed
         copy_number(state, adv, "battery", "battery_percent")
+        copy_number(state, adv, "alert_time", "alert_time_seconds")
+        copy_number(state, adv, "alarm_time", "alert_time_seconds")
+        copy_number(state, adv, "duration", "alert_time_seconds")
+        if adv.get("monitoring_period") is not None:
+            state["monitoring_period"] = adv.get("monitoring_period")
 
     elif adv_type in {"vibration", "vib"}:
         value = first_present(adv, ["vibration", "vibration_status", "status", "moving"])
@@ -558,9 +577,21 @@ def update_from_adv(
         copy_number(state, adv, "timestamp", "vibration_timestamp")
         copy_number(state, adv, "battery", "battery_percent")
 
-    elif adv_type in {"photo", "photoresistance", "lumens"}:
+    elif adv_type in {"photo", "photoresistance", "lumens", "ps", "phototransistor"}:
+        # MSP01 datasheet calls this PS / Phototransistor. G1 firmware variants may expose it as lux, lumens, ps, or phototransistor.
         copy_number(state, adv, "lumens", "photo_lumens")
         copy_number(state, adv, "photo_lumens", "photo_lumens")
+        copy_number(state, adv, "phototransistor", "phototransistor")
+        copy_number(state, adv, "ps", "phototransistor")
+        copy_number(state, adv, "light", "lux")
+        copy_number(state, adv, "lux", "lux")
+        copy_number(state, adv, "illuminance", "lux")
+        copy_number(state, adv, "light_level", "light_level")
+        light_value = first_present(adv, ["light_detected", "bright", "dark", "light_state"])
+        parsed_light = coerce_bool(light_value)
+        if parsed_light is not None:
+            # If firmware reports dark=true, invert to light_detected=false.
+            state["light_detected"] = (not parsed_light) if "dark" in adv else parsed_light
         copy_number(state, adv, "battery", "battery_percent")
 
     elif adv_type in {"tamper", "tamper_proof"}:
@@ -612,6 +643,17 @@ def update_from_adv(
         "occupancy_count": "occupancy_count",
         "nearest_beacon_rssi": "nearest_beacon_rssi",
         "strongest_rssi": "nearest_beacon_rssi",
+        "phototransistor": "phototransistor",
+        "ps": "phototransistor",
+        "lumens": "photo_lumens",
+        "photo_lumens": "photo_lumens",
+        "illuminance": "lux",
+        "lux": "lux",
+        "light_level": "light_level",
+        "alert_time": "alert_time_seconds",
+        "alarm_time": "alert_time_seconds",
+        "repeat_time": "alert_time_seconds",
+        "repetitive_triggering_time": "alert_time_seconds",
     }
     for src, dst in generic_number_map.items():
         copy_number(state, adv, src, dst)
@@ -646,6 +688,11 @@ def update_from_adv(
         "triggered": "triggered",
         "motion": "motion",
         "vibration": "vibration",
+        "alarm": "pir",
+        "pir_alarm": "pir",
+        "detected": "pir",
+        "human_detected": "pir",
+        "light_detected": "light_detected",
     }
     for src, dst in generic_bool_map.items():
         if src in adv:

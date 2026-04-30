@@ -67,13 +67,13 @@ Bijvoorbeeld:
 - `lux`, `light`, `light_lux`
 - `pressure`, `digital_pressure`
 - `tvoc`
-- `pir`
+- `pir`, `pir_sensor`, `pir_alarm`
 - `vibration`
-- `photoresistance`
+- `photoresistance`, `ps`, `phototransistor`
 - `tamper`, `tamper_proof`
 - `cb`, `combination`, `combination_frame` voor S4 deur-sensoren
 
-Daarnaast worden generieke G1-velden voor occupancy, deurstatus, ToF-afstand, radar-aantal-personen en asset-repeater nearest-beacon meegenomen wanneer ze in de JSON voorkomen.
+Daarnaast worden generieke G1-velden voor MSP01 PIR/motion, PS/phototransistor, occupancy, deurstatus, ToF-afstand, radar-aantal-personen en asset-repeater nearest-beacon meegenomen wanneer ze in de JSON voorkomen.
 
 ## S4 Door Sensor
 
