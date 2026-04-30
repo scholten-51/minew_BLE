@@ -27,7 +27,7 @@ minew/g1/ac233fc1eccc/device/<mac>/state
 
 Daarnaast publiceert hij Home Assistant MQTT discovery topics onder `homeassistant/...`, zodat devices automatisch zichtbaar worden.
 
-## Versie 0.2.2
+## Versie 0.2.3
 
 Deze versie is uitgebreid op basis van de Minew BeaconPlus Frame Definition V005 en voegt herkenning toe voor het S4 `cb`/combination-frame (`unlocked`, `uninstalled`, `triggered`).
 
@@ -39,6 +39,7 @@ Extra ondersteuning:
 - ACC, ACC+Gyro en magnetometer frames
 - Lux, pressure/weight, digital pressure, TVOC en photoresistance frames
 - PIR, vibration en tamper proof frames
+- Verbeterde MSP01 ondersteuning voor PIR/motion, HT, ACC en PS/phototransistor/lichtvelden
 - Generieke velden voor deur, occupancy, ToF, radar en asset repeater output wanneer de G1 firmware die al decodeert
 - S4 Door Sensor: `unlocked` naar deur open/dicht, `uninstalled` naar tamper/geinstalleerd en `triggered` als extra trigger-status
 
