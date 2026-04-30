@@ -27,7 +27,7 @@ minew/g1/ac233fc1eccc/device/<mac>/state
 
 Daarnaast publiceert hij Home Assistant MQTT discovery topics onder `homeassistant/...`, zodat devices automatisch zichtbaar worden.
 
-## Versie 0.2.0
+## Versie 0.2.1
 
 Deze versie is uitgebreid op basis van de Minew BeaconPlus Frame Definition V005.
 
