@@ -115,14 +115,14 @@ SENSOR_DEFS: dict[str, dict[str, Any]] = {
 
 BINARY_SENSOR_DEFS: dict[str, dict[str, Any]] = {
     "occupancy": {"name": "Occupancy", "device_class": "occupancy"},
-    "pir": {"name": "PIR Motion", "device_class": "motion"},
+    "pir": {"name": "PIR Motion", "device_class": "motion", "off_delay": 15},
     "tamper": {"name": "Tamper", "device_class": "tamper"},
     "low_battery": {"name": "Low Battery", "device_class": "battery"},
     "door_open": {"name": "Door", "device_class": "door"},
     "installed": {"name": "Installed", "icon": "mdi:check-circle-outline"},
     "triggered": {"name": "Triggered", "icon": "mdi:gesture-tap-button"},
     "light_detected": {"name": "Light Detected", "device_class": "light"},
-    "motion": {"name": "Motion", "device_class": "motion"},
+    "motion": {"name": "Motion", "device_class": "motion", "off_delay": 15},
     "vibration": {"name": "Vibration", "device_class": "vibration"},
 }
 
@@ -323,6 +323,8 @@ class Runtime:
                 payload["state_class"] = meta["state_class"]
             if "icon" in meta:
                 payload["icon"] = meta["icon"]
+            if "off_delay" in meta:
+                payload["off_delay"] = meta["off_delay"]
             self.publish_json(topic, payload, retain=True)
             self.discovered.add(topic)
 
@@ -366,7 +368,18 @@ class Runtime:
             mac = normalize_mac(adv.get("mac"))
             if not mac:
                 continue
-            state = per_message.setdefault(mac, self.states.get(mac, {}).copy())
+            if mac not in per_message:
+                state = self.states.get(mac, {}).copy()
+                # PIR/motion frames on the MSP01 can be event-only broadcasts.
+                # Reset these transient booleans for each gateway message; the
+                # actual PIR frame below sets them back to True when present.
+                if "pir" in state:
+                    state["pir"] = False
+                if "motion" in state:
+                    state["motion"] = False
+                per_message[mac] = state
+            else:
+                state = per_message[mac]
             update_from_adv(state, adv, payload, self.device_names, self.device_models, self.options)
 
         if self.options.get("publish_gateway", True):
@@ -558,10 +571,15 @@ def update_from_adv(
             "triggered", "motion", "alarm", "pir_alarm", "human_detected", "status", "state", "value"
         ])
         parsed = coerce_bool(value)
-        if parsed is not None:
-            state["pir"] = parsed
-            state["motion"] = parsed
-            state["triggered"] = parsed
+        # Some G1 firmware versions publish an MSP01 PIR alert as an event-only
+        # frame without an explicit pir/detected boolean. In that case, the
+        # presence of the PIR frame itself means motion was detected.
+        if parsed is None:
+            parsed = True
+        state["pir"] = parsed
+        state["motion"] = parsed
+        if "triggered" in adv:
+            state["triggered"] = coerce_bool(adv.get("triggered"))
         copy_number(state, adv, "battery", "battery_percent")
         copy_number(state, adv, "alert_time", "alert_time_seconds")
         copy_number(state, adv, "alarm_time", "alert_time_seconds")

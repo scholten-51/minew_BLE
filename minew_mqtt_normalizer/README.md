@@ -78,3 +78,13 @@ Daarnaast worden generieke G1-velden voor MSP01 PIR/motion, PS/phototransistor, 
 ## S4 Door Sensor
 
 G1 firmware kan de S4 als `type: cb` publiceren met velden zoals `unlocked`, `uninstalled` en `triggered`. De normalizer zet dit om naar `door_open`, `tamper`, `installed` en `triggered` binary sensors.
+
+## MSP01 PIR event-only frames
+
+Sommige G1 firmware publiceert een MSP01 PIR-alarm als alleen:
+
+```json
+{"type":"pir","mac":"...","rssi":-55}
+```
+
+zonder extra `pir:true` of `detected:true`. Vanaf v0.2.4 wordt de aanwezigheid van zo'n `pir` frame zelf als motion-event behandeld. De `pir` en `motion` binary sensors krijgen een korte `off_delay`, zodat ze na het event automatisch terugvallen naar `off`.
