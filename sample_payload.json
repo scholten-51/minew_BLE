@@ -3,12 +3,72 @@
   "gw": "ac233fc1eccc",
   "seq": 645,
   "adv": [
-    {"type": "ht", "temperature": 21.1, "humidity": 36.67, "battery": 31, "rssi": -56, "tm": "2026-04-29T17:12:02.335Z", "mac": "c3000028b951"},
-    {"type": "ib", "uuid": "d87b32bdcc0e437a81b3383833bc5ff8", "major": 1113, "minor": 15, "rssi_at_xm": -27, "rssi": -69, "tm": "2026-04-29T17:12:02.443Z", "mac": "c300004563a0"},
-    {"type": "url", "url": "http://B951.pir", "rssi_at_xm": -24, "rssi": -45, "tm": "2026-04-29T17:12:02.592Z", "mac": "c3000028b951"},
-    {"type": "info", "battery": 31, "name": "MSP01", "rssi": -53, "tm": "2026-04-29T17:12:02.592Z", "mac": "c3000028b951"},
-    {"type": "info", "battery": 100, "name": "MBM02", "rssi": -74, "tm": "2026-04-29T17:12:00.789Z", "mac": "c300004563a0"},
-    {"type": "tlm", "battery": 3714, "temperature": 24, "adv_cnt": 240081442, "sec_cnt": 352689250, "rssi": -69, "tm": "2026-04-29T17:12:01.185Z", "mac": "c300004563a0"},
-    {"type": "info", "battery": 70, "name": "Plus", "rssi": -84, "tm": "2026-04-29T17:12:02.790Z", "mac": "ac233fae2d75"}
+    {
+      "type": "ht",
+      "temperature": 21.1,
+      "humidity": 36.67,
+      "battery": 31,
+      "rssi": -56,
+      "tm": "2026-04-29T17:12:02.335Z",
+      "mac": "c3000028b951"
+    },
+    {
+      "type": "ib",
+      "uuid": "d87b32bdcc0e437a81b3383833bc5ff8",
+      "major": 1113,
+      "minor": 15,
+      "rssi_at_xm": -27,
+      "rssi": -69,
+      "tm": "2026-04-29T17:12:02.443Z",
+      "mac": "c300004563a0"
+    },
+    {
+      "type": "url",
+      "url": "http://B951.pir",
+      "rssi_at_xm": -24,
+      "rssi": -45,
+      "tm": "2026-04-29T17:12:02.592Z",
+      "mac": "c3000028b951"
+    },
+    {
+      "type": "info",
+      "battery": 31,
+      "name": "MSP01",
+      "rssi": -53,
+      "tm": "2026-04-29T17:12:02.592Z",
+      "mac": "c3000028b951"
+    },
+    {
+      "type": "info",
+      "battery": 100,
+      "name": "MBM02",
+      "rssi": -74,
+      "tm": "2026-04-29T17:12:00.789Z",
+      "mac": "c300004563a0"
+    },
+    {
+      "type": "tlm",
+      "battery": 3714,
+      "temperature": 24,
+      "adv_cnt": 240081442,
+      "sec_cnt": 352689250,
+      "rssi": -69,
+      "tm": "2026-04-29T17:12:01.185Z",
+      "mac": "c300004563a0"
+    },
+    {
+      "type": "info",
+      "battery": 70,
+      "name": "Plus",
+      "rssi": -84,
+      "tm": "2026-04-29T17:12:02.790Z",
+      "mac": "ac233fae2d75"
+    },
+    {
+      "type": "pir",
+      "rssi": -49,
+      "tm": "2026-04-30T13:50:00.000Z",
+      "mac": "c3000028b951"
+    }
   ]
 }
