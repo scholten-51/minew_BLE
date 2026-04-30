@@ -71,5 +71,10 @@ Bijvoorbeeld:
 - `vibration`
 - `photoresistance`
 - `tamper`, `tamper_proof`
+- `cb`, `combination`, `combination_frame` voor S4 deur-sensoren
 
 Daarnaast worden generieke G1-velden voor occupancy, deurstatus, ToF-afstand, radar-aantal-personen en asset-repeater nearest-beacon meegenomen wanneer ze in de JSON voorkomen.
+
+## S4 Door Sensor
+
+G1 firmware kan de S4 als `type: cb` publiceren met velden zoals `unlocked`, `uninstalled` en `triggered`. De normalizer zet dit om naar `door_open`, `tamper`, `installed` en `triggered` binary sensors.

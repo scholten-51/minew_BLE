@@ -115,6 +115,8 @@ BINARY_SENSOR_DEFS: dict[str, dict[str, Any]] = {
     "tamper": {"name": "Tamper", "device_class": "tamper"},
     "low_battery": {"name": "Low Battery", "device_class": "battery"},
     "door_open": {"name": "Door", "device_class": "door"},
+    "installed": {"name": "Installed", "icon": "mdi:check-circle-outline"},
+    "triggered": {"name": "Triggered", "icon": "mdi:gesture-tap-button"},
     "motion": {"name": "Motion", "device_class": "motion"},
     "vibration": {"name": "Vibration", "device_class": "vibration"},
 }
@@ -337,6 +339,8 @@ class Runtime:
             }
             if "device_class" in meta:
                 payload["device_class"] = meta["device_class"]
+            if "icon" in meta:
+                payload["icon"] = meta["icon"]
             self.publish_json(topic, payload, retain=True)
             self.discovered.add(topic)
 
@@ -565,7 +569,28 @@ def update_from_adv(
         parsed = coerce_bool(value)
         if parsed is not None:
             state["tamper"] = parsed
+            state["installed"] = not parsed
         copy_number(state, adv, "battery", "battery_percent")
+
+    elif adv_type in {"cb", "combination", "combination_frame"}:
+        # Minew S4 Door Sensor combination frame as decoded by G1 firmware:
+        # unlocked=true means door/window open; uninstalled=true means tamper / sensor removed.
+        unlocked = coerce_bool(adv.get("unlocked")) if "unlocked" in adv else None
+        if unlocked is not None:
+            state["door_open"] = unlocked
+        uninstalled = coerce_bool(adv.get("uninstalled")) if "uninstalled" in adv else None
+        if uninstalled is not None:
+            state["tamper"] = uninstalled
+            state["installed"] = not uninstalled
+        triggered = coerce_bool(adv.get("triggered")) if "triggered" in adv else None
+        if triggered is not None:
+            state["triggered"] = triggered
+        if adv.get("block_id") is not None:
+            # Usually a list such as [31]; keep it as readable metadata.
+            if isinstance(adv.get("block_id"), list):
+                state["block_id"] = ",".join(str(x) for x in adv.get("block_id"))
+            else:
+                state["block_id"] = str(adv.get("block_id"))
 
     # Generic decoded fields. These cover future G1 firmware decoders for
     # S4 door, MSD01 ToF occupancy, MSR01 radar, MBT02 repeater, etc.
@@ -615,6 +640,10 @@ def update_from_adv(
         "door_open": "door_open",
         "door": "door_open",
         "open": "door_open",
+        "unlocked": "door_open",
+        "uninstalled": "tamper",
+        "installed": "installed",
+        "triggered": "triggered",
         "motion": "motion",
         "vibration": "vibration",
     }

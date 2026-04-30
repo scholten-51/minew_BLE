@@ -1,5 +1,5 @@
 name: "Minew MQTT Normalizer"
-version: "0.2.1"
+version: "0.2.2"
 slug: "minew_mqtt_normalizer"
 description: "Normaliseert Minew G1 BLE MQTT payloads naar schone MQTT state-topics met Home Assistant MQTT discovery."
 url: "https://github.com/scholten-51/minew_BLE"
