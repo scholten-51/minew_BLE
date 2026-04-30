@@ -666,9 +666,33 @@ def gateway_from_topic(topic: str) -> str:
     return ""
 
 
+def mqtt_reason_code_failed(reason_code: Any) -> bool:
+    """Return True when a paho-mqtt connection reason code indicates failure.
+
+    paho-mqtt 2.x passes a ReasonCode object for VERSION2 callbacks. That
+    object cannot always be converted with int(reason_code), so handle both
+    the new object form and older integer/string forms.
+    """
+    is_failure = getattr(reason_code, "is_failure", None)
+    if is_failure is not None:
+        return bool(is_failure)
+
+    value = getattr(reason_code, "value", None)
+    if value is not None:
+        try:
+            return int(value) != 0
+        except (TypeError, ValueError):
+            pass
+
+    try:
+        return int(reason_code) != 0
+    except (TypeError, ValueError):
+        return str(reason_code).strip().lower() not in {"0", "success", "connack accepted"}
+
+
 def on_connect_factory(runtime: Runtime) -> Callable[..., None]:
     def on_connect(client: mqtt.Client, userdata: Any, flags: Any, reason_code: Any, properties: Any | None = None) -> None:
-        if int(reason_code) != 0:
+        if mqtt_reason_code_failed(reason_code):
             logging.error("MQTT connection failed: %s", reason_code)
             return
         raw_topic = runtime.options["raw_topic"]
