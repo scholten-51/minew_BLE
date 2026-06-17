@@ -13,6 +13,7 @@ whatever the gateway exposes into Home Assistant friendly state objects.
 
 from __future__ import annotations
 
+import fnmatch
 import json
 import logging
 import os
@@ -39,6 +40,8 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     "publish_gateway": True,
     "publish_frame_event_sensors": True,
     "log_level": "info",
+    "allowed_device_macs": [],
+    "ignored_device_macs": [],
     "device_name_overrides": [],
     "device_model_overrides": [],
 }
@@ -104,6 +107,25 @@ SENSOR_DEFS: dict[str, dict[str, Any]] = {
     # Occupancy / door / radar / repeater generic decoded fields
     "distance_mm": {"name": "Distance", "unit": "mm", "device_class": "distance", "state_class": "measurement"},
     "people_count": {"name": "People Count", "state_class": "measurement", "icon": "mdi:account-group"},
+    "radar_packet_index": {"name": "Radar Packet Index", "state_class": "measurement", "icon": "mdi:counter"},
+    "firmware_version": {"name": "Firmware Version", "icon": "mdi:chip"},
+    "product": {"name": "Product", "icon": "mdi:identifier"},
+    "screen": {"name": "Screen", "icon": "mdi:monitor"},
+    "person_1_x": {"name": "Person 1 X", "unit": "m", "device_class": "distance", "state_class": "measurement", "icon": "mdi:axis-x-arrow"},
+    "person_1_y": {"name": "Person 1 Y", "unit": "m", "device_class": "distance", "state_class": "measurement", "icon": "mdi:axis-y-arrow"},
+    "person_1_z": {"name": "Person 1 Z", "unit": "m", "device_class": "distance", "state_class": "measurement", "icon": "mdi:axis-z-arrow"},
+    "person_2_x": {"name": "Person 2 X", "unit": "m", "device_class": "distance", "state_class": "measurement", "icon": "mdi:axis-x-arrow"},
+    "person_2_y": {"name": "Person 2 Y", "unit": "m", "device_class": "distance", "state_class": "measurement", "icon": "mdi:axis-y-arrow"},
+    "person_2_z": {"name": "Person 2 Z", "unit": "m", "device_class": "distance", "state_class": "measurement", "icon": "mdi:axis-z-arrow"},
+    "person_3_x": {"name": "Person 3 X", "unit": "m", "device_class": "distance", "state_class": "measurement", "icon": "mdi:axis-x-arrow"},
+    "person_3_y": {"name": "Person 3 Y", "unit": "m", "device_class": "distance", "state_class": "measurement", "icon": "mdi:axis-y-arrow"},
+    "person_3_z": {"name": "Person 3 Z", "unit": "m", "device_class": "distance", "state_class": "measurement", "icon": "mdi:axis-z-arrow"},
+    "person_4_x": {"name": "Person 4 X", "unit": "m", "device_class": "distance", "state_class": "measurement", "icon": "mdi:axis-x-arrow"},
+    "person_4_y": {"name": "Person 4 Y", "unit": "m", "device_class": "distance", "state_class": "measurement", "icon": "mdi:axis-y-arrow"},
+    "person_4_z": {"name": "Person 4 Z", "unit": "m", "device_class": "distance", "state_class": "measurement", "icon": "mdi:axis-z-arrow"},
+    "person_5_x": {"name": "Person 5 X", "unit": "m", "device_class": "distance", "state_class": "measurement", "icon": "mdi:axis-x-arrow"},
+    "person_5_y": {"name": "Person 5 Y", "unit": "m", "device_class": "distance", "state_class": "measurement", "icon": "mdi:axis-y-arrow"},
+    "person_5_z": {"name": "Person 5 Z", "unit": "m", "device_class": "distance", "state_class": "measurement", "icon": "mdi:axis-z-arrow"},
     "open_count": {"name": "Open Count", "state_class": "total_increasing", "icon": "mdi:door-open"},
     "close_count": {"name": "Close Count", "state_class": "total_increasing", "icon": "mdi:door-closed"},
     "tamper_count": {"name": "Tamper Count", "state_class": "total_increasing", "icon": "mdi:shield-alert"},
@@ -115,6 +137,7 @@ SENSOR_DEFS: dict[str, dict[str, Any]] = {
 
 BINARY_SENSOR_DEFS: dict[str, dict[str, Any]] = {
     "occupancy": {"name": "Occupancy", "device_class": "occupancy"},
+    "presence": {"name": "Presence", "device_class": "presence"},
     "pir": {"name": "PIR Motion", "device_class": "motion", "off_delay": 15},
     "tamper": {"name": "Tamper", "device_class": "tamper"},
     "low_battery": {"name": "Low Battery", "device_class": "battery"},
@@ -170,6 +193,51 @@ def parse_overrides(rows: list[str] | None) -> dict[str, str]:
         if mac and value:
             result[mac] = value
     return result
+
+
+def normalize_mac_pattern(value: Any) -> str:
+    """Normalize a MAC allow/ignore pattern.
+
+    Accepted examples:
+    - c3000028b951       exact MAC
+    - C3:00:00:28:B9:51 exact MAC with colons
+    - c3000%             SQL-like prefix wildcard
+    - c3000*             shell-style prefix wildcard
+    - c3000???????       single-character wildcards
+    """
+    text = str(value or "").split("=", 1)[0].strip().lower()
+    text = text.replace(":", "").replace("-", "").replace("%", "*")
+    return "".join(ch for ch in text if ch.isalnum() or ch in {"*", "?"})
+
+
+def parse_mac_patterns(rows: list[str] | None) -> list[str]:
+    """Parse add-on MAC filters as exact addresses or wildcard patterns.
+
+    Rows may be plain MAC addresses, wildcard patterns, or override-like
+    entries such as ``c30000191fad=MSR01 Radar``. Colons and dashes are
+    accepted. Use ``%`` or ``*`` as wildcard, for example ``c3000%``.
+    """
+    result: list[str] = []
+    for row in rows or []:
+        pattern = normalize_mac_pattern(row)
+        if pattern:
+            result.append(pattern)
+    return result
+
+
+def mac_matches_patterns(mac: str, patterns: list[str]) -> bool:
+    normalized = normalize_mac(mac)
+    return any(fnmatch.fnmatchcase(normalized, pattern) for pattern in patterns)
+
+
+def should_process_mac(mac: str, options: dict[str, Any]) -> bool:
+    allowed = parse_mac_patterns(options.get("allowed_device_macs"))
+    ignored = parse_mac_patterns(options.get("ignored_device_macs"))
+    if mac_matches_patterns(mac, ignored):
+        return False
+    if allowed and not mac_matches_patterns(mac, allowed):
+        return False
+    return True
 
 
 def normalize_mac(value: Any) -> str:
@@ -350,6 +418,8 @@ class Runtime:
                 payload["device_class"] = meta["device_class"]
             if "icon" in meta:
                 payload["icon"] = meta["icon"]
+            if "off_delay" in meta:
+                payload["off_delay"] = meta["off_delay"]
             self.publish_json(topic, payload, retain=True)
             self.discovered.add(topic)
 
@@ -367,6 +437,9 @@ class Runtime:
                 continue
             mac = normalize_mac(adv.get("mac"))
             if not mac:
+                continue
+            if not should_process_mac(mac, self.options):
+                logging.debug("Skipping BLE device %s because it is not allowed by allowed_device_macs/ignored_device_macs", mac)
                 continue
             if mac not in per_message:
                 state = self.states.get(mac, {}).copy()
@@ -422,6 +495,8 @@ def infer_model(state: dict[str, Any]) -> str | None:
     frames = set(state.get("frames") or [])
     if {"pir", "ps", "photo", "phototransistor", "ht", "acc"}.intersection(frames) and ("pir" in frames or "ps" in frames or "photo" in frames or "phototransistor" in frames):
         return "MSP01 PIR sensor"
+    if "lo" in frames or "info_v3" in frames or "people_count" in state:
+        return "MSR01-A Personnel Radar"
     if "ht" in frames:
         return "HT sensor"
     if "temp" in frames:
@@ -641,6 +716,58 @@ def update_from_adv(
             else:
                 state["block_id"] = str(adv.get("block_id"))
 
+    elif adv_type == "info_v3":
+        # Minew Connect V3 device information frame as decoded by G1 firmware.
+        copy_number(state, adv, "battery", "battery_percent")
+        if adv.get("ver") is not None:
+            state["firmware_version"] = str(adv.get("ver"))
+        if adv.get("firmware") is not None:
+            state["firmware_version"] = str(adv.get("firmware"))
+        if adv.get("firmware_version") is not None:
+            state["firmware_version"] = str(adv.get("firmware_version"))
+        if adv.get("product") is not None:
+            state["product"] = str(adv.get("product"))
+        if adv.get("screen") is not None:
+            state["screen"] = str(adv.get("screen"))
+
+    elif adv_type in {"lo", "location", "radar", "radar_coordinate", "person_coordinate"}:
+        # MSR01-A personnel coordinate broadcast as decoded by G1 firmware.
+        # The raw protocol encodes coordinates as (byte - 127) / 10 m,
+        # but G1 payloads usually already expose axis coordinates in meters.
+        copy_number(state, adv, "index", "radar_packet_index")
+        copy_number(state, adv, "packet_index", "radar_packet_index")
+        copy_number(state, adv, "people", "people_count")
+        copy_number(state, adv, "people_count", "people_count")
+        count = first_present(adv, ["people", "people_count", "total_people", "total_number_of_people"])
+        try:
+            count_int = int(float(count))
+        except (TypeError, ValueError):
+            count_int = 0
+        state["occupancy"] = count_int > 0
+        state["presence"] = count_int > 0
+
+        axes = adv.get("axis") or adv.get("axes") or adv.get("coordinates") or adv.get("persons")
+        if isinstance(axes, dict):
+            axes = [axes]
+        if isinstance(axes, list):
+            for idx, item in enumerate(axes[:5], start=1):
+                if not isinstance(item, dict):
+                    continue
+                copy_number(state, item, "x", f"person_{idx}_x")
+                copy_number(state, item, "y", f"person_{idx}_y")
+                copy_number(state, item, "z", f"person_{idx}_z")
+                copy_number(state, item, "x_axis", f"person_{idx}_x")
+                copy_number(state, item, "y_axis", f"person_{idx}_y")
+                copy_number(state, item, "z_axis", f"person_{idx}_z")
+        else:
+            # Fallback for firmware variants that flatten only one coordinate.
+            copy_number(state, adv, "x", "person_1_x")
+            copy_number(state, adv, "y", "person_1_y")
+            copy_number(state, adv, "z", "person_1_z")
+            copy_number(state, adv, "x_axis", "person_1_x")
+            copy_number(state, adv, "y_axis", "person_1_y")
+            copy_number(state, adv, "z_axis", "person_1_z")
+
     # Generic decoded fields. These cover future G1 firmware decoders for
     # S4 door, MSD01 ToF occupancy, MSR01 radar, MBT02 repeater, etc.
     generic_number_map = {
@@ -672,6 +799,8 @@ def update_from_adv(
         "alarm_time": "alert_time_seconds",
         "repeat_time": "alert_time_seconds",
         "repetitive_triggering_time": "alert_time_seconds",
+        "index": "radar_packet_index",
+        "packet_index": "radar_packet_index",
     }
     for src, dst in generic_number_map.items():
         copy_number(state, adv, src, dst)
@@ -680,6 +809,11 @@ def update_from_adv(
         "nearest_beacon_mac": "nearest_beacon_mac",
         "strongest_mac": "nearest_beacon_mac",
         "beacon_mac": "nearest_beacon_mac",
+        "ver": "firmware_version",
+        "firmware": "firmware_version",
+        "firmware_version": "firmware_version",
+        "product": "product",
+        "screen": "screen",
     }
     for src, dst in generic_text_map.items():
         if adv.get(src) is not None:

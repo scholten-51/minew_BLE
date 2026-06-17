@@ -72,8 +72,31 @@ Bijvoorbeeld:
 - `photoresistance`, `ps`, `phototransistor`
 - `tamper`, `tamper_proof`
 - `cb`, `combination`, `combination_frame` voor S4 deur-sensoren
+- `lo`, `location`, `radar`, `radar_coordinate` voor MSR01-A radar/person-coordinate frames
+- `info_v3` voor Minew Connect V3 apparaatinfo
 
 Daarnaast worden generieke G1-velden voor MSP01 PIR/motion, PS/phototransistor, occupancy, deurstatus, ToF-afstand, radar-aantal-personen en asset-repeater nearest-beacon meegenomen wanneer ze in de JSON voorkomen.
+
+## MAC-filter / allowlist
+
+De Minew G1 kan veel BLE-apparaten uit de omgeving zien. Gebruik daarom `allowed_device_macs` om alleen gewenste apparaten naar Home Assistant te publiceren.
+
+Exacte MAC-adressen en wildcards werken allebei:
+
+```yaml
+allowed_device_macs:
+  - "c3000%"        # alles dat met C3000 begint
+  - "ac233fae2d75"  # exacte MAC voor Plus
+ignored_device_macs:
+  - "c3000deadbeef" # optioneel: specifieke uitzondering
+```
+
+Ondersteunde wildcards:
+
+- `%` of `*` = willekeurige rest/tekens, bijvoorbeeld `c3000%`
+- `?` = precies één teken
+
+`ignored_device_macs` heeft voorrang op `allowed_device_macs`.
 
 ## S4 Door Sensor
 
@@ -88,3 +111,15 @@ Sommige G1 firmware publiceert een MSP01 PIR-alarm als alleen:
 ```
 
 zonder extra `pir:true` of `detected:true`. Vanaf v0.2.4 wordt de aanwezigheid van zo'n `pir` frame zelf als motion-event behandeld. De `pir` en `motion` binary sensors krijgen een korte `off_delay`, zodat ze na het event automatisch terugvallen naar `off`.
+
+## MSR01-A Radar / Personnel coordinates
+
+G1 firmware kan de MSR01-A radar publiceren als `type: lo` met bijvoorbeeld:
+
+```json
+{"type":"lo","people":1,"axis":[{"x":-0.2,"y":-0.1,"z":1.7}],"mac":"c30000191fad"}
+```
+
+Vanaf v0.2.5 zet de normalizer dit om naar `people_count`, `occupancy`, `presence` en `person_1_x/y/z` t/m `person_5_x/y/z`.
+
+`type: info_v3` wordt gebruikt voor apparaatinfo zoals `battery`, `ver`, `screen` en `product`.

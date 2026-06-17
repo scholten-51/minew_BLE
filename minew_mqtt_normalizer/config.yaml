@@ -1,5 +1,5 @@
 name: "Minew MQTT Normalizer"
-version: "0.2.4"
+version: "0.2.7"
 slug: "minew_mqtt_normalizer"
 description: "Normaliseert Minew G1 BLE MQTT payloads naar schone MQTT state-topics met Home Assistant MQTT discovery."
 url: "https://github.com/scholten-51/minew_BLE"
@@ -32,14 +32,26 @@ options:
   publish_gateway: true
   publish_frame_event_sensors: true
   log_level: "info"
+  # Belangrijk: de G1 ziet ook veel BLE-apparaten van buren/omgeving.
+  # Alleen MAC-adressen/patronen in deze lijst worden naar Home Assistant gepubliceerd.
+  # Wildcards mogen met % of *; voorbeeld: "c3000%" betekent alles dat met C3000 begint.
+  # ignored_device_macs wint altijd van allowed_device_macs.
+  allowed_device_macs:
+    - "c3000%"        # Minew C3000 apparaten, zoals MSP01, MBM02, S4 en MSR01
+    - "ac233fae2d75"  # Plus
+  ignored_device_macs: []
   device_name_overrides:
     - "c3000028b951=MSP01"
     - "c300004563a0=MBM02"
     - "ac233fae2d75=Plus"
+    - "c3000047a97f=S4 Door Sensor"
+    - "c30000191fad=MSR01 Radar"
   device_model_overrides:
     - "c3000028b951=MSP01"
     - "c300004563a0=MBM02"
     - "ac233fae2d75=BeaconPlus"
+    - "c3000047a97f=S4 Door Sensor"
+    - "c30000191fad=MSR01-A Personnel Radar"
 schema:
   mqtt_host: str
   mqtt_port: port
@@ -54,6 +66,10 @@ schema:
   publish_gateway: bool
   publish_frame_event_sensors: bool
   log_level: list(debug|info|warning|error)
+  allowed_device_macs:
+    - str
+  ignored_device_macs:
+    - str
   device_name_overrides:
     - str
   device_model_overrides:
